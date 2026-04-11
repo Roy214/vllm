@@ -226,6 +226,7 @@ _EMBEDDING_MODELS = {
     "GritLM": ("gritlm", "GritLM"),
     "GteModel": ("bert_with_rope", "SnowflakeGteNewModel"),
     "GteNewModel": ("bert_with_rope", "GteNewModel"),
+    "JinaEmbeddingsV5Model": ("jina_embeddings_v5", "JinaEmbeddingsV5Model"),
     "LlamaBidirectionalModel": ("llama", "LlamaBidirectionalModel"),
     "LlamaModel": ("llama", "LlamaForCausalLM"),
     **{
