@@ -129,40 +129,31 @@ class JinaEmbeddingsV5Model(Qwen3ForCausalLM, VllmModelForPooling):
             )
         else:
             adapter_config, adapter_weights = result
-            r = adapter_config["r"]
-            lora_alpha = adapter_config["lora_alpha"]
-            scaling = lora_alpha / r
-
+            scaling = adapter_config["lora_alpha"] / adapter_config["r"]
+            lora_pairs = _build_lora_pairs(adapter_weights)
             logger.info(
                 "Loaded %d adapter tensors for task %r "
-                "(r=%d, alpha=%d, scaling=%.4f)",
-                len(adapter_weights), self._task, r, lora_alpha, scaling,
+                "(scaling=%.4f, %d LoRA pairs)",
+                len(adapter_weights), self._task, scaling, len(lora_pairs),
             )
-
-            lora_pairs = _build_lora_pairs(adapter_weights)
-            logger.info("Built %d LoRA pairs for merging", len(lora_pairs))
 
         def _merge_weights(
             weights: Iterable[tuple[str, torch.Tensor]],
         ) -> Iterable[tuple[str, torch.Tensor]]:
-            merged_count = 0
             for name, tensor in weights:
-                if name in lora_pairs:
-                    pair = lora_pairs[name]
+                clean_name = name
+                if clean_name.startswith("model."):
+                    clean_name = clean_name[len("model."):]
+
+                if clean_name in lora_pairs:
+                    pair = lora_pairs[clean_name]
                     if "A" in pair and "B" in pair:
                         lora_A = pair["A"].to(device=tensor.device,
                                               dtype=tensor.dtype)
                         lora_B = pair["B"].to(device=tensor.device,
                                               dtype=tensor.dtype)
                         tensor = tensor + (lora_B @ lora_A) * scaling
-                        merged_count += 1
                 yield name, tensor
-
-            if merged_count > 0:
-                logger.info(
-                    "Merged %d LoRA pairs (task=%r)",
-                    merged_count, self._task,
-                )
 
         loaded = self.model.load_weights(_merge_weights(weights))
         return {f"model.{name}" for name in loaded}
