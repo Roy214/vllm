@@ -28,7 +28,13 @@ EMBEDDING_MODELS = [
         attn_type="encoder_only",
         is_prefix_caching_supported=False,
         is_chunked_prefill_supported=False,
-    )
+    ),
+    EmbedModelInfo(
+        "jinaai/jina-embeddings-v5-text-small",
+        architecture="JinaEmbeddingsV5Model",
+        seq_pooling_type="LAST",
+        trust_remote_code=True,
+    ),
 ]
 
 RERANK_MODELS = [
@@ -46,8 +52,10 @@ RERANK_MODELS = [
 
 @pytest.mark.parametrize("model_info", EMBEDDING_MODELS)
 def test_embed_models_mteb(hf_runner, vllm_runner, model_info: EmbedModelInfo) -> None:
+    task = "retrieval.query" if "v5" in model_info.name else "text-matching"
+
     def hf_model_callback(model):
-        model.encode = partial(model.encode, task="text-matching")
+        model.encode = partial(model.encode, task=task)
 
     mteb_test_embed_models(
         hf_runner, vllm_runner, model_info, hf_model_callback=hf_model_callback
@@ -58,8 +66,10 @@ def test_embed_models_mteb(hf_runner, vllm_runner, model_info: EmbedModelInfo) -
 def test_embed_models_correctness(
     hf_runner, vllm_runner, model_info: EmbedModelInfo, example_prompts
 ) -> None:
+    task = "retrieval.query" if "v5" in model_info.name else "text-matching"
+
     def hf_model_callback(model):
-        model.encode = partial(model.encode, task="text-matching")
+        model.encode = partial(model.encode, task=task)
 
     correctness_test_embed_models(
         hf_runner,
@@ -93,12 +103,14 @@ def test_matryoshka(
     # ST will strip the input texts, see test_embedding.py
     example_prompts = [str(s).strip() for s in example_prompts]
 
+    task = "retrieval.query" if "v5" in model_info.name else "text-matching"
+
     with hf_runner(
         model_info.name,
         dtype=dtype,
         is_sentence_transformer=True,
     ) as hf_model:
-        hf_outputs = hf_model.encode(example_prompts, task="text-matching")
+        hf_outputs = hf_model.encode(example_prompts, task=task)
         hf_outputs = matryoshka_fy(hf_outputs, dimensions)
 
     with vllm_runner(
