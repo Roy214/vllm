@@ -33,7 +33,6 @@ EMBEDDING_MODELS = [
         "jinaai/jina-embeddings-v5-text-small",
         architecture="JinaEmbeddingsV5Model",
         seq_pooling_type="LAST",
-        trust_remote_code=True,
     ),
 ]
 
