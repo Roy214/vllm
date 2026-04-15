@@ -31,6 +31,7 @@ EMBEDDING_MODELS = [
     ),
     EmbedModelInfo(
         "jinaai/jina-embeddings-v5-text-small",
+        mteb_score=0.794535707854956,
         architecture="JinaEmbeddingsV5Model",
         seq_pooling_type="LAST",
     ),
@@ -51,7 +52,7 @@ RERANK_MODELS = [
 
 @pytest.mark.parametrize("model_info", EMBEDDING_MODELS)
 def test_embed_models_mteb(hf_runner, vllm_runner, model_info: EmbedModelInfo) -> None:
-    task = "retrieval.query" if "v5" in model_info.name else "text-matching"
+    task = "retrieval" if "v5" in model_info.name else "text-matching"
 
     def hf_model_callback(model):
         model.encode = partial(model.encode, task=task)
@@ -65,7 +66,7 @@ def test_embed_models_mteb(hf_runner, vllm_runner, model_info: EmbedModelInfo) -
 def test_embed_models_correctness(
     hf_runner, vllm_runner, model_info: EmbedModelInfo, example_prompts
 ) -> None:
-    task = "retrieval.query" if "v5" in model_info.name else "text-matching"
+    task = "retrieval" if "v5" in model_info.name else "text-matching"
 
     def hf_model_callback(model):
         model.encode = partial(model.encode, task=task)
@@ -102,7 +103,7 @@ def test_matryoshka(
     # ST will strip the input texts, see test_embedding.py
     example_prompts = [str(s).strip() for s in example_prompts]
 
-    task = "retrieval.query" if "v5" in model_info.name else "text-matching"
+    task = "retrieval" if "v5" in model_info.name else "text-matching"
 
     with hf_runner(
         model_info.name,
