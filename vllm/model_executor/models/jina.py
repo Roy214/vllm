@@ -131,14 +131,18 @@ _SUPPORTED_TASKS = {"retrieval", "text-matching", "classification", "clustering"
 
 
 def _load_adapter(
-    model: str, task: str, revision: str | None,
+    model: str,
+    task: str,
+    revision: str | None,
 ) -> tuple[dict, dict[str, torch.Tensor]] | None:
     """Load adapter config and weights from a local path or HF repo.
 
     Returns (adapter_config, adapter_weights) or None if not found.
     """
     config_bytes = get_hf_file_bytes(
-        f"adapters/{task}/adapter_config.json", model, revision,
+        f"adapters/{task}/adapter_config.json",
+        model,
+        revision,
     )
     if config_bytes is None:
         return None
@@ -146,7 +150,9 @@ def _load_adapter(
     adapter_config = json.loads(config_bytes)
 
     weights_bytes = get_hf_file_bytes(
-        f"adapters/{task}/adapter_model.safetensors", model, revision,
+        f"adapters/{task}/adapter_model.safetensors",
+        model,
+        revision,
     )
     if weights_bytes is None:
         return None
@@ -167,7 +173,7 @@ def _build_lora_pairs(adapter_weights: dict) -> dict:
     for key, tensor in adapter_weights.items():
         clean_key = key
         if clean_key.startswith("base_model.model."):
-            clean_key = clean_key[len("base_model.model."):]
+            clean_key = clean_key[len("base_model.model.") :]
 
         if ".lora_A." in clean_key:
             base_key = clean_key.split(".lora_A.")[0] + ".weight"
@@ -200,7 +206,8 @@ class JinaEmbeddingsV5Model(Qwen3ForCausalLM, VllmModelForPooling):
         if self._task not in _SUPPORTED_TASKS:
             logger.warning(
                 "Unknown jina_task=%r. Falling back to %r.",
-                self._task, _DEFAULT_TASK,
+                self._task,
+                _DEFAULT_TASK,
             )
             self._task = _DEFAULT_TASK
 
@@ -208,27 +215,27 @@ class JinaEmbeddingsV5Model(Qwen3ForCausalLM, VllmModelForPooling):
         assert pooler_config is not None
         self.pooler = DispatchPooler.for_embedding(pooler_config)
 
-    def load_weights(
-        self, weights: Iterable[tuple[str, torch.Tensor]]
-    ) -> set[str]:
+    def load_weights(self, weights: Iterable[tuple[str, torch.Tensor]]) -> set[str]:
         lora_pairs: dict = {}
         scaling = 1.0
 
         result = _load_adapter(self._model_name, self._task, self._revision)
         if result is None:
             logger.warning(
-                "No adapter found for task %r in %r. "
-                "Loading raw base weights.",
-                self._task, self._model_name,
+                "No adapter found for task %r in %r. Loading raw base weights.",
+                self._task,
+                self._model_name,
             )
         else:
             adapter_config, adapter_weights = result
             scaling = adapter_config["lora_alpha"] / adapter_config["r"]
             lora_pairs = _build_lora_pairs(adapter_weights)
             logger.info(
-                "Loaded %d adapter tensors for task %r "
-                "(scaling=%.4f, %d LoRA pairs)",
-                len(adapter_weights), self._task, scaling, len(lora_pairs),
+                "Loaded %d adapter tensors for task %r (scaling=%.4f, %d LoRA pairs)",
+                len(adapter_weights),
+                self._task,
+                scaling,
+                len(lora_pairs),
             )
 
         def _merge_weights(
@@ -237,15 +244,13 @@ class JinaEmbeddingsV5Model(Qwen3ForCausalLM, VllmModelForPooling):
             for name, tensor in weights:
                 clean_name = name
                 if clean_name.startswith("model."):
-                    clean_name = clean_name[len("model."):]
+                    clean_name = clean_name[len("model.") :]
 
                 if clean_name in lora_pairs:
                     pair = lora_pairs[clean_name]
                     if "A" in pair and "B" in pair:
-                        lora_A = pair["A"].to(device=tensor.device,
-                                              dtype=tensor.dtype)
-                        lora_B = pair["B"].to(device=tensor.device,
-                                              dtype=tensor.dtype)
+                        lora_A = pair["A"].to(device=tensor.device, dtype=tensor.dtype)
+                        lora_B = pair["B"].to(device=tensor.device, dtype=tensor.dtype)
                         tensor = tensor + (lora_B @ lora_A) * scaling
                 yield name, tensor
 
