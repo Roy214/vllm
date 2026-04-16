@@ -34,6 +34,9 @@ EMBEDDING_MODELS = [
         mteb_score=0.794535707854956,
         architecture="JinaEmbeddingsV5Model",
         seq_pooling_type="LAST",
+        attn_type="decoder",
+        is_prefix_caching_supported=True,
+        is_chunked_prefill_supported=True,
     ),
 ]
 
@@ -53,12 +56,17 @@ RERANK_MODELS = [
 @pytest.mark.parametrize("model_info", EMBEDDING_MODELS)
 def test_embed_models_mteb(hf_runner, vllm_runner, model_info: EmbedModelInfo) -> None:
     task = "retrieval" if "v5" in model_info.name else "text-matching"
+    prompt_prefix: str | None = "Document: " if "v5" in model_info.name else None
 
     def hf_model_callback(model):
         model.encode = partial(model.encode, task=task)
 
     mteb_test_embed_models(
-        hf_runner, vllm_runner, model_info, hf_model_callback=hf_model_callback
+        hf_runner,
+        vllm_runner,
+        model_info,
+        hf_model_callback=hf_model_callback,
+        prompt_prefix=prompt_prefix,
     )
 
 
